@@ -143,6 +143,33 @@ ITEM_METADATA_MATCHING = """\
         </itemmetadata>
 """
 
+ITEM_METADATA_ORDERING = """\
+        <itemmetadata>
+          <qtimetadata>
+            <qtimetadatafield>
+              <fieldlabel>question_type</fieldlabel>
+              <fieldentry>{question_type}</fieldentry>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>points_possible</fieldlabel>
+              <fieldentry>{points_possible}</fieldentry>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>original_answer_ids</fieldlabel>
+              <fieldentry>{original_answer_ids}</fieldentry>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>assessment_question_identifierref</fieldlabel>
+              <fieldentry>{assessment_question_identifierref}</fieldentry>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>calculator_type</fieldlabel>
+              <fieldentry>none</fieldentry>
+            </qtimetadatafield>
+          </qtimetadata>
+        </itemmetadata>
+"""
+
 ITEM_PRESENTATION_MCTF = """\
         <presentation>
           <material>
@@ -239,6 +266,36 @@ ITEM_PRESENTATION_MATCHING_RENDER_CHOICE = """\
                   <mattext>{answer}</mattext>
                 </material>
               </response_label>"""
+
+ITEM_PRESENTATION_ORDERING = """\
+        <presentation>
+          <material>
+            <mattext texttype="text/html">&lt;p&gt;Test stem&lt;/p&gt;</mattext>
+          </material>
+          <response_lid ident="response1" rcardinality="Ordered">
+            <render_extension>
+              <material position="top">
+                <mattext/>
+              </material>
+              <ims_render_object shuffle="No">
+                <flow_label>
+{choices}
+                </flow_label>
+              </ims_render_object>
+              <material position="bottom">
+                <mattext/>
+              </material>
+            </render_extension>
+          </response_lid>
+        </presentation>
+"""
+
+ITEM_PRESENTATION_ORDERING_CHOICE = """\
+                  <response_label ident="{ident}">
+                    <material>
+                      <mattext texttype="text/html">{choice_html_xml}</mattext>
+                    </material>
+                  </response_label>"""
 
 
 ITEM_RESPROCESSING_START = """\
@@ -446,6 +503,25 @@ ITEM_RESPROCESSING_MATCHING_SET_CORRECT_NO_FEEDBACK = """\
 {varequal}
 """
 
+ITEM_RESPROCESSING_ORDERING_START = """\
+        <resprocessing>
+          <outcomes>
+            <decvar defaultval="1" varname="ORDERSCORE" vartype="Integer"/>
+          </outcomes>
+          <respcondition continue="No">
+            <conditionvar>
+{choices}
+            </conditionvar>
+            <setvar action="Set" varname="SCORE">100</setvar>
+          </respcondition>
+"""
+
+ITEM_RESPROCESSING_ORDERING = """\
+              <varequal respident="response1">{ident}</varequal>"""
+
+ITEM_RESPROCESSING_ORDERING_SET_CORRECT_NO_FEEDBACK = """\
+{varequal}"""
+
 
 ITEM_RESPROCESSING_END = """\
         </resprocessing>
@@ -551,6 +627,9 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
         elif question.type == "matching_question":
             item_metadata = ITEM_METADATA_MATCHING
             original_answer_ids = ",".join(f"text2qti_choice_{c.id}" for c in question.choices)
+        elif question.type == "ordering_question":
+            item_metadata = ITEM_METADATA_ORDERING
+            original_answer_ids = ",".join(f"text2qti_choice_{c.id}" for c in question.choices)
         else:
             raise ValueError
         xml.append(
@@ -618,6 +697,19 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
 
             choices = "\n".join(choices_list)
             xml.append(ITEM_PRESENTATION_MATCHING.format(question_html_xml=question.question_html_xml, choices=choices))
+        elif question.type == "ordering_question":
+            render_choices_list = []
+            choices_list = []
+            for c in question.choices:
+                choices_list.append(
+                    ITEM_PRESENTATION_ORDERING_CHOICE.format(
+                        ident=f"text2qti_choice_{c.id}", choice_html_xml=c.choice_html_xml
+                    )
+                )
+
+            choices = "\n".join(choices_list)
+            xml.append(ITEM_PRESENTATION_ORDERING.format(question_html_xml=question.question_html_xml, choices=choices))
+
         else:
             raise ValueError
 
@@ -771,6 +863,31 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
             else:
                 resprocessing.append(
                     ITEM_RESPROCESSING_MATCHING_SET_CORRECT_NO_FEEDBACK.format(varequal="\n".join(varequal))
+                )
+            # if question.incorrect_feedback_raw is not None:
+            #     resprocessing.append(ITEM_RESPROCESSING_MULTANS_INCORRECT_FEEDBACK)
+            resprocessing.append(ITEM_RESPROCESSING_END)
+            xml.extend(resprocessing)
+        elif question.type == "ordering_question":
+            resprocessing = []
+            # TODO: Later.
+            # if question.feedback_raw is not None:
+            #    resprocessing.append(ITEM_RESPROCESSING_MULTANS_GENERAL_FEEDBACK)
+
+            # for choice in question.choices:
+            #     if choice.feedback_raw is not None:
+            #         resprocessing.append(ITEM_RESPROCESSING_MULTANS_CHOICE_FEEDBACK.format(ident=f'text2qti_choice_{choice.id}'))
+
+            varequal = []
+            for choice in question.choices:
+                varequal.append(ITEM_RESPROCESSING_ORDERING.format(ident=f"text2qti_choice_{choice.id}"))
+            if question.correct_feedback_raw is not None:
+                raise NotImplementedError
+            else:
+                resprocessing.append(
+                    ITEM_RESPROCESSING_ORDERING_START.format(
+                        choices=ITEM_RESPROCESSING_ORDERING_SET_CORRECT_NO_FEEDBACK.format(varequal="\n".join(varequal))
+                    )
                 )
             # if question.incorrect_feedback_raw is not None:
             #     resprocessing.append(ITEM_RESPROCESSING_MULTANS_INCORRECT_FEEDBACK)
