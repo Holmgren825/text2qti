@@ -826,15 +826,20 @@ class Quiz(object):
 
             points_possible = 0
             digests = []
+            in_group = False
             for x in self.questions_and_delims:
                 if isinstance(x, Question):
-                    points_possible += x.points_possible
-                    digests.append(x.hash_digest)
+                    if not in_group:
+                        points_possible += x.points_possible
+                        digests.append(x.hash_digest)
+                    else:
+                        pass
                 elif isinstance(x, GroupStart):
+                    in_group = True
                     points_possible += x.group.points_per_question * x.group.pick
                     digests.append(x.group.hash_digest)
                 elif isinstance(x, GroupEnd):
-                    pass
+                    in_group = False
                 elif isinstance(x, TextRegion):
                     pass
                 else:
