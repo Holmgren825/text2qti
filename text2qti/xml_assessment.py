@@ -496,7 +496,7 @@ ITEM_RESPROCESSING_MATCHING = """\
             <conditionvar>
               <varequal respident="response_{ident}">{ident}</varequal>
             </conditionvar>
-            <setvar action="Add" varname="SCORE">33.33</setvar>
+            <setvar action="Add" varname="SCORE">{score}</setvar>
           </respcondition>"""
 
 ITEM_RESPROCESSING_MATCHING_SET_CORRECT_NO_FEEDBACK = """\
@@ -854,8 +854,13 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
             #         resprocessing.append(ITEM_RESPROCESSING_MULTANS_CHOICE_FEEDBACK.format(ident=f'text2qti_choice_{choice.id}'))
 
             varequal = []
+            n_choices = len(question.choices)
+            score_per_question = 100 / n_choices
+            score_per_question = round(score_per_question, 2)
             for choice in question.choices:
-                varequal.append(ITEM_RESPROCESSING_MATCHING.format(ident=f"text2qti_choice_{choice.id}"))
+                varequal.append(
+                    ITEM_RESPROCESSING_MATCHING.format(ident=f"text2qti_choice_{choice.id}", score=score_per_question)
+                )
             if question.correct_feedback_raw is not None:
                 resprocessing.append(
                     ITEM_RESPROCESSING_MULTANS_SET_CORRECT_WITH_FEEDBACK.format(varequal="\n".join(varequal))
