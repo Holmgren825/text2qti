@@ -270,7 +270,7 @@ ITEM_PRESENTATION_MATCHING_RENDER_CHOICE = """\
 ITEM_PRESENTATION_ORDERING = """\
         <presentation>
           <material>
-            <mattext texttype="text/html">&lt;p&gt;Test stem&lt;/p&gt;</mattext>
+            <mattext texttype="text/html">{question_html_xml}</mattext>
           </material>
           <response_lid ident="response1" rcardinality="Ordered">
             <render_extension>
