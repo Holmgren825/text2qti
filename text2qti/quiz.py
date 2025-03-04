@@ -40,6 +40,7 @@ start_patterns = {
     'multans_correct_choice': r'\[\*\]',
     'multans_incorrect_choice': r'\[ ?\]',
     'shortans_correct_choice': r'\*',
+    'matching_choice': r'>',
     'feedback': r'\.\.\.',
     'correct_feedback': r'\+',
     'incorrect_feedback': r'\-',
@@ -336,6 +337,16 @@ class Question(object):
         elif self.type != 'multiple_answers_question':
             raise Text2qtiError(f'Question type "{self.type}" does not support multiple answers')
         choice = Choice(text, correct=False, question_hash_digest=self.hash_digest, md=self.md)
+        if choice.choice_html_xml in self._choice_set:
+            raise Text2qtiError('Duplicate choice for question')
+        self._choice_set.add(choice.choice_html_xml)
+        self.choices.append(choice)
+
+    def append_matching_choice(self, text: str):
+        if self.type is None:
+            self.type = 'matching_question'
+        choice = Choice(text, correct=False, question_hash_digest=self.hash_digest, md=self.md)
+
         if choice.choice_html_xml in self._choice_set:
             raise Text2qtiError('Duplicate choice for question')
         self._choice_set.add(choice.choice_html_xml)
@@ -1085,6 +1096,16 @@ class Quiz(object):
         if not isinstance(last_question_or_delim, Question):
             raise Text2qtiError('Cannot have a choice without a question')
         last_question_or_delim.append_multans_incorrect_choice(text)
+
+    def append_matching_choice(self, text: str):
+        if self._next_question_attr:
+            raise Text2qtiError('Expected question; question title and/or points were set but not used')
+        if not self.questions_and_delims:
+            raise Text2qtiError('Cannot have a choice without a question')
+        last_question_or_delim = self.questions_and_delims[-1]
+        if not isinstance(last_question_or_delim, Question):
+            raise Text2qtiError('Cannot have a choice without a question')
+        last_question_or_delim.append_matching_choice(text)
 
     def append_essay(self, text: str):
         if self._next_question_attr:
