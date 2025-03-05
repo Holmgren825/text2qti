@@ -665,6 +665,7 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
             xml.append(ITEM_PRESENTATION_UPLOAD.format(question_html_xml=question.question_html_xml))
         elif question.type == "matching_question":
             render_choices_list = []
+            dist_count = 0
             for c in question.choices:
                 matching_pattern = r"(.*)\s->\s(.*)"
                 match = re.match(matching_pattern, c.choice_raw)
@@ -673,9 +674,15 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
                     answer_str = match.group(2)
                 else:
                     raise ValueError("Matching question not formatted correctly")
+                if c.distractor:
+                    ident = f"distractor_{dist_count}"
+                    dist_count += 1
+                else:
+                    ident = f"text2qti_choice_{c.id}"
+
                 render_choices_list.append(
                     ITEM_PRESENTATION_MATCHING_RENDER_CHOICE.format(
-                        ident=f"text2qti_choice_{c.id}", answer=answer_str, choice_html_xml=question_str
+                        ident=ident, answer=answer_str, choice_html_xml=question_str
                     )
                 )
 
@@ -689,11 +696,12 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
                     answer_str = match.group(2)
                 else:
                     raise ValueError("Matching question not formatted correctly")
-                choices_list.append(
-                    ITEM_PRESENTATION_MATCHING_CHOICE.format(
-                        ident=f"text2qti_choice_{c.id}", render_choices=render_choices, choice_html_xml=question_str
+                if not c.distractor:
+                    choices_list.append(
+                        ITEM_PRESENTATION_MATCHING_CHOICE.format(
+                            ident=f"text2qti_choice_{c.id}", render_choices=render_choices, choice_html_xml=question_str
+                        )
                     )
-                )
 
             choices = "\n".join(choices_list)
             xml.append(ITEM_PRESENTATION_MATCHING.format(question_html_xml=question.question_html_xml, choices=choices))
@@ -853,11 +861,13 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
             #     if choice.feedback_raw is not None:
             #         resprocessing.append(ITEM_RESPROCESSING_MULTANS_CHOICE_FEEDBACK.format(ident=f'text2qti_choice_{choice.id}'))
 
+            non_distract_choices = [c for c in question.choices if not c.distractor]
             varequal = []
-            n_choices = len(question.choices)
+            n_choices = len(non_distract_choices)
             score_per_question = 100 / n_choices
             score_per_question = round(score_per_question, 2)
-            for choice in question.choices:
+
+            for choice in non_distract_choices:
                 varequal.append(
                     ITEM_RESPROCESSING_MATCHING.format(ident=f"text2qti_choice_{choice.id}", score=score_per_question)
                 )

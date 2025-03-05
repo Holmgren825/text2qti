@@ -176,7 +176,16 @@ class Choice(object):
     The presence of feedback does not affect the id.
     """
 
-    def __init__(self, text: str, *, correct: bool, shortans: bool = False, question_hash_digest: bytes, md: Markdown):
+    def __init__(
+        self,
+        text: str,
+        *,
+        correct: bool,
+        shortans: bool = False,
+        question_hash_digest: bytes,
+        md: Markdown,
+        distractor: bool = False,
+    ):
         self.choice_raw = text
         if shortans:
             self.choice_xml = md.xml_escape(text)
@@ -186,6 +195,7 @@ class Choice(object):
         self.shortans = shortans
         self.feedback_raw: Optional[str] = None
         self.feedback_html_xml: Optional[str] = None
+        self.distractor: bool = distractor
         # ID is based on hash of choice XML as well as question XML.  This
         # gives different IDs for identical choices in different questions.
         if shortans:
@@ -266,6 +276,7 @@ class Question(object):
         self.hash_digest = h.digest()
         self.id = h.hexdigest()[:64]
         self.md = md
+        self.n_distractors: int = 0
 
     def append_feedback(self, text: str):
         if self.type is not None and not self.choices:
@@ -368,7 +379,22 @@ class Question(object):
     def append_matching_choice(self, text: str):
         if self.type is None:
             self.type = "matching_question"
-        choice = Choice(text, correct=False, question_hash_digest=self.hash_digest, md=self.md)
+        pattern = r"(.*)\s->\s(.*)"
+        match = re.match(pattern, text)
+        if match:
+            question_str = match.group(1)
+            if question_str == "_":
+                distractor = True
+                self.n_distractors += 1
+            else:
+                distractor = False
+        choice = Choice(
+            text,
+            correct=False,
+            distractor=distractor,
+            question_hash_digest=self.hash_digest,
+            md=self.md,
+        )
 
         if choice.choice_html_xml in self._choice_set:
             raise Text2qtiError("Duplicate choice for question")
