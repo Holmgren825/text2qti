@@ -17,7 +17,7 @@ BEFORE_ITEMS = """\
     <qtimetadata>
       <qtimetadatafield>
         <fieldlabel>cc_maxattempts</fieldlabel>
-        <fieldentry>1</fieldentry>
+        <fieldentry>{allowed_attempts}</fieldentry>
       </qtimetadatafield>
     </qtimetadata>
     <section ident="root_section">
@@ -574,7 +574,11 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
     Generate assessment XML from Quiz.
     """
     xml = []
-    xml.append(BEFORE_ITEMS.format(assessment_identifier=assessment_identifier, title=title_xml))
+    xml.append(
+        BEFORE_ITEMS.format(
+            assessment_identifier=assessment_identifier, title=title_xml, allowed_attempts=quiz.allowed_attempts_xml
+        )
+    )
     for question_or_delim in quiz.questions_and_delims:
         if isinstance(question_or_delim, TextRegion):
             xml.append(

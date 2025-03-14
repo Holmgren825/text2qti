@@ -65,6 +65,7 @@ start_patterns = {
     "quiz_shuffle_questions": r"[Ss]huffle questions:",
     "quiz_show_correct_answers": r"[Ss]how correct answers:",
     "quiz_one_question_at_a_time": r"[Oo]ne question at a time:",
+    "quiz_allowed_attempts": r"[Aa]llowed attempts:",
     "quiz_cant_go_back": r"""[Cc]an't go back:""",
     "quiz_feedback_is_solution": r"[Ff]eedback is solution:",
     "quiz_solutions_sample_groups": r"[Ss]olutions sample groups:",
@@ -90,6 +91,7 @@ single_line = set(
         "quiz_shuffle_answers",
         "quiz_shuffle_questions",
         "quiz_show_correct_answers",
+        "quiz_allowed_attempts",
         "quiz_one_question_at_a_time",
         "quiz_cant_go_back",
         "quiz_feedback_is_solution",
@@ -681,6 +683,8 @@ class Quiz(object):
         self.show_correct_answers_xml = "true"
         self.one_question_at_a_time_raw = None
         self.one_question_at_a_time_xml = "false"
+        self.allowed_attempts_raw: str | None = None
+        self.allowed_attempts_xml: str = "1"
         self.cant_go_back_raw = None
         self.cant_go_back_xml = "false"
         self.feedback_is_solution: Optional[bool] = None
@@ -1024,6 +1028,19 @@ class Quiz(object):
             raise Text2qtiError('Expected option value "true" or "false"')
         self.one_question_at_a_time_raw = text
         self.one_question_at_a_time_xml = text.lower()
+
+    def append_quiz_allowed_attempts(self, text: str):
+        if self._next_question_attr:
+            raise Text2qtiError("Expected question; question title and/or points were set but not used")
+        if self.questions_and_delims:
+            raise Text2qtiError("Must give quiz options before questions")
+        if self.allowed_attempts_raw is not None:
+            raise Text2qtiError('Quiz option "Shuffle answers" has already been set')
+        if int(text) == -1 or int(text) > 0:
+            self.allowed_attempts_raw = text
+            self.allowed_attempts_xml = text.lower()
+        else:
+            raise Text2qtiError("Expected option value -1 or 1.")
 
     def append_quiz_cant_go_back(self, text: str):
         if self._next_question_attr:
