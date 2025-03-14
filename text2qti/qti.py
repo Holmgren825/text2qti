@@ -47,6 +47,7 @@ class QTI(object):
             description_html_xml=quiz.description_html_xml,
             points_possible=quiz.points_possible,
             shuffle_answers=quiz.shuffle_answers_xml,
+            shuffle_questions=quiz.shuffle_questions_xml,
             show_correct_answers=quiz.show_correct_answers_xml,
             one_question_at_a_time=quiz.one_question_at_a_time_xml,
             cant_go_back=quiz.cant_go_back_xml,

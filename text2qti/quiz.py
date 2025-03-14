@@ -62,6 +62,7 @@ start_patterns = {
     "start_code": r"```+\s*\S.*",
     "end_code": r"```+",
     "quiz_shuffle_answers": r"[Ss]huffle answers:",
+    "quiz_shuffle_questions": r"[Ss]huffle questions:",
     "quiz_show_correct_answers": r"[Ss]how correct answers:",
     "quiz_one_question_at_a_time": r"[Oo]ne question at a time:",
     "quiz_cant_go_back": r"""[Cc]an't go back:""",
@@ -87,6 +88,7 @@ single_line = set(
         "numerical",
         "shortans_correct_choice",
         "quiz_shuffle_answers",
+        "quiz_shuffle_questions",
         "quiz_show_correct_answers",
         "quiz_one_question_at_a_time",
         "quiz_cant_go_back",
@@ -673,6 +675,8 @@ class Quiz(object):
         self.description_html_xml = ""
         self.shuffle_answers_raw = None
         self.shuffle_answers_xml = "false"
+        self.shuffle_questions_raw: str | None = None
+        self.shuffle_questions_xml = "false"
         self.show_correct_answers_raw = None
         self.show_correct_answers_xml = "true"
         self.one_question_at_a_time_raw = None
@@ -984,6 +988,18 @@ class Quiz(object):
             raise Text2qtiError('Expected option value "true" or "false"')
         self.shuffle_answers_raw = text
         self.shuffle_answers_xml = text.lower()
+
+    def append_quiz_shuffle_questions(self, text: str):
+        if self._next_question_attr:
+            raise Text2qtiError("Expected question; question title and/or points were set but not used")
+        if self.questions_and_delims:
+            raise Text2qtiError("Must give quiz options before questions")
+        if self.shuffle_questions_raw is not None:
+            raise Text2qtiError('Quiz option "Shuffle answers" has already been set')
+        if text not in ("true", "True", "false", "False"):
+            raise Text2qtiError('Expected option value "true" or "false"')
+        self.shuffle_questions_raw = text
+        self.shuffle_questions_xml = text.lower()
 
     def append_quiz_show_correct_answers(self, text: str):
         if self._next_question_attr:
