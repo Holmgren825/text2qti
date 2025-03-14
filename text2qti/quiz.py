@@ -29,6 +29,8 @@ from .config import Config
 from .err import Text2qtiError
 from .markdown import Image, Markdown
 
+TRUE_FALSE_ALTERNATIVES = ("true", "True", "sant", "Sant", "false", "False", "falskt", "Falskt")
+
 # regex patterns for parsing quiz content
 start_patterns = {
     "question": r"\d+\.",
@@ -520,7 +522,7 @@ class Question(object):
         if self.type is None:
             raise Text2qtiError("Question must specify a response type")
         elif self.type == "multiple_choice_question":
-            if len(self.choices) == 2 and all(c.choice_raw in ("true", "True", "false", "False") for c in self.choices):
+            if len(self.choices) == 2 and all(c.choice_raw in TRUE_FALSE_ALTERNATIVES for c in self.choices):
                 self.type = "true_false_question"
             if not self.choices:
                 raise Text2qtiError("Question must provide choices")
