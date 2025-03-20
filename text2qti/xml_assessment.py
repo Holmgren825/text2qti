@@ -103,6 +103,10 @@ ITEM_METADATA_MCTF_SHORTANS_MULTANS_NUM = """\
               <fieldlabel>assessment_question_identifierref</fieldlabel>
               <fieldentry>{assessment_question_identifierref}</fieldentry>
             </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>calculator_type</fieldlabel>
+              <fieldentry>{calculator_type}</fieldentry>
+            </qtimetadatafield>
           </qtimetadata>
         </itemmetadata>
 """
@@ -642,6 +646,7 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
                 points_possible=question.points_possible,
                 original_answer_ids=original_answer_ids,
                 assessment_question_identifierref=f"text2qti_question_ref_{question.id}",
+                calculator_type=question.calculator_type,
             )
         )
 

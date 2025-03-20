@@ -50,6 +50,7 @@ start_patterns = {
     "numerical": r"=",
     "question_title": r"[Tt]itle:",
     "question_points": r"[Pp]oints:",
+    "question_calculator_type": r"[Cc]alculator type:",
     "text_title": r"[Tt]ext [Tt]itle:",
     "text": r"[Tt]ext:",
     "quiz_title": r"[Qq]uiz [Tt]itle:",
@@ -227,7 +228,16 @@ class Question(object):
     various types.
     """
 
-    def __init__(self, text: str, *, quiz: "Quiz", title: Optional[str], points: Optional[str], md: Markdown):
+    def __init__(
+        self,
+        text: str,
+        *,
+        quiz: "Quiz",
+        title: Optional[str],
+        points: Optional[str],
+        calculator_type: Optional[str],
+        md: Markdown,
+    ):
         # Question type is set once it is known.  For true/false or multiple
         # choice, this is done during .finalize(), once all choices are
         # available.  For essay, this is done as soon as essay response is
@@ -254,6 +264,12 @@ class Question(object):
         self.numerical_exact_html_xml: Optional[str] = None
         self.numerical_max: Optional[Union[int, float]] = None
         self.numerical_max_html_xml: Optional[str] = None
+        if calculator_type is None:
+            self.calculator_type: str = "none"
+        elif calculator_type in ["basic", "scientific"]:
+            self.calculator_type = calculator_type
+        else:
+            raise ValueError(f'Invalid calculator type "{calculator_type}"; should be "basic" or "scientific"')
         self.correct_choices = 0
         if points is None:
             self.points_possible_raw: Optional[str] = None
@@ -1137,6 +1153,7 @@ class Quiz(object):
             quiz=self,
             title=self._next_question_attr.get("title"),
             points=self._next_question_attr.get("points"),
+            calculator_type=self._next_question_attr.get("calculator_type"),
             md=self.md,
         )
         self._next_question_attr = {}
@@ -1158,6 +1175,11 @@ class Quiz(object):
         if "points" in self._next_question_attr:
             raise Text2qtiError("Points for next question has already been set")
         self._next_question_attr["points"] = text
+
+    def append_question_calculator_type(self, text: str):
+        if "calculator_type" in self._next_question_attr:
+            raise Text2qtiError("Calculator type for next question has already been set")
+        self._next_question_attr["calculator_type"] = text
 
     def append_feedback(self, text: str):
         if self._next_question_attr:
