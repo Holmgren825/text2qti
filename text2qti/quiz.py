@@ -280,7 +280,7 @@ class Question(object):
                 points_num = float(points)
             except ValueError:
                 raise Text2qtiError(f'Invalid points value "{points}"; need positive integer or half-integer')
-            if points_num <= 0:
+            if points_num < 0:
                 raise Text2qtiError(f'Invalid points value "{points}"; need positive integer or half-integer')
             if points_num.is_integer():
                 points_num = int(points)
