@@ -6,6 +6,7 @@
 # Licensed under the BSD 3-Clause License:
 # http://opensource.org/licenses/BSD-3-Clause
 #
+import hashlib
 import re
 
 from .quiz import GroupEnd, GroupStart, Question, Quiz, TextRegion
@@ -147,6 +148,33 @@ ITEM_METADATA_MATCHING = """\
         </itemmetadata>
 """
 
+ITEM_METADATA_CATEGORIZATION = """\
+        <itemmetadata>
+          <qtimetadata>
+            <qtimetadatafield>
+              <fieldlabel>question_type</fieldlabel>
+              <fieldentry>{question_type}</fieldentry>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>points_possible</fieldlabel>
+              <fieldentry>{points_possible}</fieldentry>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>original_answer_ids</fieldlabel>
+              <fieldentry/>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>assessment_question_identifierref</fieldlabel>
+              <fieldentry>{assessment_question_identifierref}</fieldentry>
+            </qtimetadatafield>
+            <qtimetadatafield>
+              <fieldlabel>calculator_type</fieldlabel>
+              <fieldentry>none</fieldentry>
+            </qtimetadatafield>
+          </qtimetadata>
+        </itemmetadata>
+"""
+
 ITEM_METADATA_ORDERING = """\
         <itemmetadata>
           <qtimetadata>
@@ -268,6 +296,32 @@ ITEM_PRESENTATION_MATCHING_RENDER_CHOICE = """\
               <response_label ident="{ident}">
                 <material>
                   <mattext>{answer}</mattext>
+                </material>
+              </response_label>"""
+
+ITEM_PRESENTATION_CATEGORIZATION = """\
+        <presentation>
+          <material>
+            <mattext texttype="text/html">{question_html_xml}</mattext>
+          </material>
+{choices}
+        </presentation>
+"""
+
+ITEM_PRESENTATION_CATEGORIZATION_CHOICE = """\
+          <response_lid ident="category_{ident}" rcardinality="Multiple">
+            <material>
+              <mattext texttype="text/plain">{category_raw}</mattext>
+            </material>
+            <render_choice>
+{render_choices}
+            </render_choice>
+          </response_lid>"""
+
+ITEM_PRESENTATION_CATEGORIZATION_RENDER_CHOICE = """\
+              <response_label ident="{ident}">
+                <material>
+                  <mattext texttype="text/plain">{choice_raw}</mattext>
                 </material>
               </response_label>"""
 
@@ -507,6 +561,17 @@ ITEM_RESPROCESSING_MATCHING_SET_CORRECT_NO_FEEDBACK = """\
 {varequal}
 """
 
+ITEM_RESPROCESSING_CATEGORIZATION = """\
+          <respcondition>
+            <conditionvar>
+{varequal}
+            </conditionvar>
+            <setvar action="Add" varname="SCORE">{score}</setvar>
+          </respcondition>"""
+
+ITEM_RESPROCESSING_CATEGORIZATION_VAREQUAL = """\
+              <varequal respident="category_{category_ident}">{ident}</varequal>"""
+
 ITEM_RESPROCESSING_ORDERING_START = """\
         <resprocessing>
           <outcomes>
@@ -638,6 +703,9 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
         elif question.type == "ordering_question":
             item_metadata = ITEM_METADATA_ORDERING
             original_answer_ids = ",".join(f"text2qti_choice_{c.id}" for c in question.choices)
+        elif question.type == "categorization_question":
+            item_metadata = ITEM_METADATA_CATEGORIZATION
+            original_answer_ids = ",".join(f"text2qti_choice_{c.id}" for c in question.choices)
         else:
             raise ValueError
         xml.append(
@@ -714,6 +782,35 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
 
             choices = "\n".join(choices_list)
             xml.append(ITEM_PRESENTATION_MATCHING.format(question_html_xml=question.question_html_xml, choices=choices))
+        elif question.type == "categorization_question":
+            render_choices_list = []
+            dist_count = 0
+            for c in question.choices:
+                if c.distractor:
+                    dist_count += 1
+                ident = f"text2qti_choice_{c.id}"
+
+                render_choices_list.append(
+                    ITEM_PRESENTATION_CATEGORIZATION_RENDER_CHOICE.format(ident=ident, choice_raw=c.answer_raw)
+                )
+
+            render_choices = "\n".join(render_choices_list)
+            choices_list = []
+            for category_str in question.categories:
+                category_id = hashlib.blake2b(category_str.encode("utf8")).hexdigest()[:64]
+                choices_list.append(
+                    ITEM_PRESENTATION_CATEGORIZATION_CHOICE.format(
+                        ident=f"{category_id}",
+                        render_choices=render_choices,
+                        category_raw=category_str,
+                    )
+                )
+
+            choices = "\n".join(choices_list)
+            xml.append(
+                ITEM_PRESENTATION_CATEGORIZATION.format(question_html_xml=question.question_html_xml, choices=choices)
+            )
+
         elif question.type == "ordering_question":
             render_choices_list = []
             choices_list = []
@@ -892,6 +989,50 @@ def assessment(*, quiz: Quiz, assessment_identifier: str, title_xml: str) -> str
             #     resprocessing.append(ITEM_RESPROCESSING_MULTANS_INCORRECT_FEEDBACK)
             resprocessing.append(ITEM_RESPROCESSING_END)
             xml.extend(resprocessing)
+        elif question.type == "categorization_question":
+            resprocessing = []
+            resprocessing.append(ITEM_RESPROCESSING_START)
+            # TODO: Later.
+            # if question.feedback_raw is not None:
+            #    resprocessing.append(ITEM_RESPROCESSING_MULTANS_GENERAL_FEEDBACK)
+
+            # for choice in question.choices:
+            #     if choice.feedback_raw is not None:
+            #         resprocessing.append(ITEM_RESPROCESSING_MULTANS_CHOICE_FEEDBACK.format(ident=f'text2qti_choice_{choice.id}'))
+
+            varequal = []
+            score_per_question = 100 / question.n_categories
+            score_per_question = round(score_per_question, 2)
+
+            for category in question.categories:
+                # Get hash of current category.
+                category_id = hashlib.blake2b(category.encode("utf8")).hexdigest()[:64]
+                varequal_category = []
+                for choice in question.choices:
+                    if choice.category_raw == category:
+                        varequal_category.append(
+                            ITEM_RESPROCESSING_CATEGORIZATION_VAREQUAL.format(
+                                category_ident=f"{category_id}", ident=f"text2qti_choice_{choice.id}"
+                            )
+                        )
+                varequal.append(
+                    ITEM_RESPROCESSING_CATEGORIZATION.format(
+                        varequal="\n".join(varequal_category), score=score_per_question
+                    )
+                )
+            if question.correct_feedback_raw is not None:
+                resprocessing.append(
+                    ITEM_RESPROCESSING_MULTANS_SET_CORRECT_WITH_FEEDBACK.format(varequal="\n".join(varequal))
+                )
+            else:
+                resprocessing.append(
+                    ITEM_RESPROCESSING_MATCHING_SET_CORRECT_NO_FEEDBACK.format(varequal="\n".join(varequal))
+                )
+            # if question.incorrect_feedback_raw is not None:
+            #     resprocessing.append(ITEM_RESPROCESSING_MULTANS_INCORRECT_FEEDBACK)
+            resprocessing.append(ITEM_RESPROCESSING_END)
+            xml.extend(resprocessing)
+
         elif question.type == "ordering_question":
             resprocessing = []
             # TODO: Later.

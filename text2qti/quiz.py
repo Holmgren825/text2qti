@@ -41,6 +41,7 @@ start_patterns = {
     "shortans_correct_choice": r"\*",
     "matching_choice": r">",
     "ordering_choice": r"~",
+    "categorization_choice": r"<",
     "feedback": r"\.\.\.",
     "correct_feedback": r"\+",
     "incorrect_feedback": r"\-",
@@ -192,6 +193,8 @@ class Choice(object):
         question_hash_digest: bytes,
         md: Markdown,
         distractor: bool = False,
+        category_str: str | None = None,
+        answer_str: str | None = None,
     ):
         self.choice_raw = text
         if shortans:
@@ -203,6 +206,8 @@ class Choice(object):
         self.feedback_raw: Optional[str] = None
         self.feedback_html_xml: Optional[str] = None
         self.distractor: bool = distractor
+        self.category_raw: str | None = category_str
+        self.answer_raw: str | None = answer_str
         # ID is based on hash of choice XML as well as question XML.  This
         # gives different IDs for identical choices in different questions.
         if shortans:
@@ -299,6 +304,9 @@ class Question(object):
         self.id = h.hexdigest()[:64]
         self.md = md
         self.n_distractors: int = 0
+        self.n_categories: int = 0
+        self.categories: List[str] = []
+        self._categories_set: Set[str] = set()
 
     def append_feedback(self, text: str):
         if self.type is not None and not self.choices:
@@ -421,6 +429,38 @@ class Question(object):
         if choice.choice_html_xml in self._choice_set:
             raise Text2qtiError("Duplicate choice for question")
         self._choice_set.add(choice.choice_html_xml)
+        self.choices.append(choice)
+
+    def append_categorization_choice(self, text: str):
+        if self.type is None:
+            self.type = "categorization_question"
+        pattern = r"(.*)\s->\s(.*)"
+        match = re.match(pattern, text)
+        if match:
+            choice_str = match.group(1)
+            category_str = match.group(2)
+            if category_str == "_":
+                distractor = True
+                self.n_distractors += 1
+            else:
+                distractor = False
+                if category_str not in self.categories:
+                    self.n_categories += 1
+                    self.categories.append(category_str)
+        choice = Choice(
+            text,
+            correct=False,
+            distractor=distractor,
+            question_hash_digest=self.hash_digest,
+            md=self.md,
+            category_str=category_str,
+            answer_str=choice_str,
+        )
+
+        if choice.answer_raw:
+            if choice.answer_raw in self._choice_set:
+                raise Text2qtiError("Duplicate choice for question")
+            self._choice_set.add(choice.answer_raw)
         self.choices.append(choice)
 
     def append_ordering_choice(self, text: str):
@@ -1285,6 +1325,16 @@ class Quiz(object):
         if not isinstance(last_question_or_delim, Question):
             raise Text2qtiError("Cannot have a choice without a question")
         last_question_or_delim.append_matching_choice(text)
+
+    def append_categorization_choice(self, text: str):
+        if self._next_question_attr:
+            raise Text2qtiError("Expected question; question title and/or points were set but not used")
+        if not self.questions_and_delims:
+            raise Text2qtiError("Cannot have a choice without a question")
+        last_question_or_delim = self.questions_and_delims[-1]
+        if not isinstance(last_question_or_delim, Question):
+            raise Text2qtiError("Cannot have a choice without a question")
+        last_question_or_delim.append_categorization_choice(text)
 
     def append_ordering_choice(self, text: str):
         if self._next_question_attr:
